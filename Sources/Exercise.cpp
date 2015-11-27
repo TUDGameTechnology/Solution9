@@ -3,65 +3,239 @@
 #include <Kore/Application.h>
 #include <Kore/IO/FileReader.h>
 #include <Kore/Math/Core.h>
+#include <Kore/Math/Random.h>
 #include <Kore/System.h>
 #include <Kore/Input/Keyboard.h>
 #include <Kore/Input/Mouse.h>
 #include <Kore/Audio/Mixer.h>
 #include <Kore/Graphics/Image.h>
 #include <Kore/Graphics/Graphics.h>
+#include <Kore/Log.h>
 #include "ObjLoader.h"
-#include <algorithm>
-#include <iostream>
+
+#include "Collision.h"
+#include "PhysicsWorld.h"
+#include "PhysicsObject.h"
 
 using namespace Kore;
 
-class MeshObject {
+// A simple particle implementation
+class Particle {
 public:
-	MeshObject(const char* meshFile, const char* textureFile, const VertexStructure& structure, float scale = 1.0f) {
-		mesh = loadObj(meshFile);
-		image = new Texture(textureFile, true);
+	VertexBuffer* vb;
+	IndexBuffer* ib;
 
-		vertexBuffer = new VertexBuffer(mesh->numVertices, structure, 0);
-		float* vertices = vertexBuffer->lock();
-		for (int i = 0; i < mesh->numVertices; ++i) {
-			vertices[i * 8 + 0] = mesh->vertices[i * 8 + 0] * scale;
-			vertices[i * 8 + 1] = mesh->vertices[i * 8 + 1] * scale;
-			vertices[i * 8 + 2] = mesh->vertices[i * 8 + 2] * scale;
-			vertices[i * 8 + 3] = mesh->vertices[i * 8 + 3];
-			vertices[i * 8 + 4] = 1.0f - mesh->vertices[i * 8 + 4];
-			vertices[i * 8 + 5] = mesh->vertices[i * 8 + 5];
-			vertices[i * 8 + 6] = mesh->vertices[i * 8 + 6];
-			vertices[i * 8 + 7] = mesh->vertices[i * 8 + 7];
-		}
-		vertexBuffer->unlock();
+	mat4 M;
+	
+	// The current position
+	vec3 position;
+	
+	// The current velocity
+	vec3 velocity;
 
-		indexBuffer = new IndexBuffer(mesh->numFaces * 3);
-		int* indices = indexBuffer->lock();
-		for (int i = 0; i < mesh->numFaces * 3; i++) {
-			indices[i] = mesh->indices[i];
-		}
-		indexBuffer->unlock();
+	// The remaining time to live
+	float timeToLive;
 
-		M = mat4::Identity();
+	// The total time time to live
+	float totalTimeToLive;
+
+	// Is the particle dead (= ready to be re-spawned?)
+	bool dead;
+
+
+	void init(const VertexStructure& structure) {
+		vb = new VertexBuffer(4, structure,0);
+		float* vertices = vb->lock();
+		SetVertex(vertices, 0, -1, -1, 0, 0, 0);
+		SetVertex(vertices, 1, -1, 1, 0, 0, 1);
+		SetVertex(vertices, 2, 1, 1, 0, 1, 1); 
+		SetVertex(vertices, 3, 1, -1, 0, 1, 0); 
+		vb->unlock();
+
+		// Set index buffer
+		ib = new IndexBuffer(6);
+		int* indices = ib->lock();
+		indices[0] = 0;
+		indices[1] = 1;
+		indices[2] = 2;
+		indices[3] = 0;
+		indices[4] = 2;
+		indices[5] = 3;
+		ib->unlock();
+
+		dead = true;
 	}
 
-	void render(TextureUnit tex) {
-		//image->_set(tex);
+
+	void Emit(vec3 pos, vec3 velocity, float timeToLive) {
+		position = pos;
+		this->velocity = velocity;
+		dead = false;
+		this->timeToLive = timeToLive;
+		totalTimeToLive = timeToLive;
+	}
+
+	Particle() {
+	}
+
+
+	void SetVertex(float* vertices, int index, float x, float y, float z, float u, float v) {
+		vertices[index* 8 + 0] = x;
+		vertices[index*8 + 1] = y;
+		vertices[index*8 + 2] = z;
+		vertices[index*8 + 3] = u;
+		vertices[index*8 + 4] = v;
+		vertices[index*8 + 5] = 0.0f;
+		vertices[index*8 + 6] = 0.0f;
+		vertices[index*8 + 7] = -1.0f;
+	}
+
+	void render(TextureUnit tex, Texture* image) {
 		Graphics::setTexture(tex, image);
-		//vertexBuffer->_set();
-		Graphics::setVertexBuffer(*vertexBuffer);
-		//indexBuffer->_set();
-		Graphics::setIndexBuffer(*indexBuffer);
+		Graphics::setVertexBuffer(*vb);
+		Graphics::setIndexBuffer(*ib);
 		Graphics::drawIndexedVertices();
 	}
 
-	mat4 M;
-private:
-	VertexBuffer* vertexBuffer;
-	IndexBuffer* indexBuffer;
-	Mesh* mesh;
-	Texture* image;
+	void Integrate(float deltaTime) {
+		timeToLive -= deltaTime;
+
+		if (timeToLive < 0.0f) {
+			dead = true;
+		}
+		
+		// Note: We are using no forces or gravity at the moment.
+
+		position += velocity * deltaTime;
+
+		// Build the matrix
+		M = mat4::Translation(position.x(), position.y(), position.z()) * mat4::Scale(0.2f, 0.2f, 0.2f);
+	}
+
+
 };
+
+
+class ParticleSystem {
+public:
+
+	// The center of the particle system
+	vec3 position;
+
+	// The minimum coordinates of the emitter box
+	vec3 emitMin;
+
+	// The maximal coordinates of the emitter box
+	vec3 emitMax;
+	
+	// The list of particles
+	Particle* particles;
+
+	// The number of particles
+	int numParticles;
+
+	// The spawn rate
+	float spawnRate;
+	
+	// When should the next particle be spawned?
+	float nextSpawn;
+
+	ParticleSystem(int maxParticles, const VertexStructure& structure ) {
+		particles = new Particle[maxParticles];
+		numParticles = maxParticles;
+		for (int i = 0; i < maxParticles; i++) {
+			particles[i].init(structure);
+		}
+		spawnRate = 0.05f;
+		nextSpawn = spawnRate;
+
+		position = vec3(0.5f, 1.3f, 0.5f);
+		float b = 0.1f;
+		emitMin = position + vec3(-b, -b, -b);
+		emitMax = position + vec3(b, b, b);
+	}
+
+	
+	void update(float deltaTime) {
+		// Do we need to spawn a particle?
+		nextSpawn -= deltaTime;
+		bool spawnParticle = false;
+		if (nextSpawn < 0) {
+			spawnParticle = true;
+			nextSpawn = spawnRate;
+		}
+		
+		
+		for (int i = 0; i < numParticles; i++) {
+			
+			if (particles[i].dead) {
+				if (spawnParticle) {
+					EmitParticle(i);
+					spawnParticle = false;
+				}
+			}
+
+			particles[i].Integrate(deltaTime);
+		}
+	}
+
+	void render(TextureUnit tex, Texture* image, ConstantLocation mLocation, mat4 V) {
+		Graphics::setBlendingMode(BlendingOperation::SourceAlpha, BlendingOperation::InverseSourceAlpha);
+		Graphics::setRenderState(RenderState::DepthWrite, false);
+		
+		/************************************************************************/
+		/* Exercise 7 1.1                                                       */
+		/************************************************************************/
+		/* Change the matrix V in such a way that the billboards are oriented towards the camera */
+
+
+		/************************************************************************/
+		/* Exercise 7 1.2                                                       */
+		/************************************************************************/
+		/* Animate using at least one new control parameter */		
+
+		for (int i = 0; i < numParticles; i++) {
+			// Skip dead particles
+			if (particles[i].dead) continue;
+
+			Graphics::setMatrix(mLocation, particles[i].M * V);
+			particles[i].render(tex, image);
+		}
+		Graphics::setRenderState(RenderState::DepthWrite, true);
+	}
+
+	float getRandom(float minValue, float maxValue) {
+		int randMax = 1000000;
+		int randInt = Random::get(0, randMax);
+		float r =  (float) randInt / (float) randMax;
+		return minValue + r * (maxValue - minValue);
+	}
+
+	void EmitParticle(int index) {
+		// Calculate a random position inside the box
+		float x = getRandom(emitMin.x(), emitMax.x());
+		float y = getRandom(emitMin.y(), emitMax.y());
+		float z = getRandom(emitMin.z(), emitMax.z());
+
+		vec3 pos;
+		pos.set(x, y, z);
+
+		vec3 velocity(0, 0.3f, 0);
+
+		particles[index].Emit(pos, velocity, 3.0f);
+	}
+
+
+};
+
+
+
+
+
+
+
+
+
 
 namespace {
 	const int width = 1024;
@@ -71,81 +245,72 @@ namespace {
 	Shader* fragmentShader;
 	Program* program;
 
+	float angle = 0.0f;
+
 	// null terminated array of MeshObject pointers
-	MeshObject* objects[] = { nullptr, nullptr, nullptr, nullptr, nullptr };
+	MeshObject* objects[] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+
+	// null terminated array of PhysicsObject pointers
+	PhysicsObject* physicsObjects[] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+
 
 	// The view projection matrix aka the camera
 	mat4 P;
-	mat4 V;
+	mat4 View;
+	mat4 PV;
+
+	vec3 cameraPosition;
+
+	MeshObject* sphere;
+	PhysicsObject* po;
+
+	PhysicsWorld physics;
+	
 
 	// uniform locations - add more as you see fit
 	TextureUnit tex;
-	ConstantLocation pLocation;
-	ConstantLocation vLocation;
+	ConstantLocation pvLocation;
 	ConstantLocation mLocation;
-	ConstantLocation lightLocation;
-	ConstantLocation eyeLocation;
-	ConstantLocation specLocation;
-	ConstantLocation roughnessLocation;
-	ConstantLocation modeLocation;
+	ConstantLocation tintLocation;
 
-	vec3 eye;
-	vec3 globe = vec3(0, 1.95f, -2.5f);
-	//vec3 globe = vec3(0.7f, 1.2f, -0.2f);
-	vec3 light = vec3(0, 1.95f, -3.0f);
-	
-	bool left, right, up, down, forward, backward;
-	int mode = 0;
-	float roughness = 0.9f;
-	float specular = 0.1f;
-	bool toggle = false;
-	
+	Texture* particleImage;
+	ParticleSystem* particleSystem;
+
+	double lastTime;
+
 	void update() {
-		float t = (float)(System::time() - startTime);
+		double t = System::time() - startTime;
+		double deltaT = t - lastTime;
+		//Kore::log(Info, "%f\n", deltaT);
+		lastTime = t;
 		Kore::Audio::update();
-
-		const float speed = 0.05f;
-		if (left) {
-			eye.x() -= speed;
-		}
-		if (right) {
-			eye.x() += speed;
-		}
-		if (forward) {
-			eye.z() += speed;
-		}
-		if (backward) {
-			eye.z() -= speed;
-		}
-		if (up) {
-			eye.y() += speed;
-		}
-		if (down) {
-			eye.y() -= speed;
-		}
 		
 		Graphics::begin();
-		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff000000, 1000.0f);
-		
+		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff9999FF, 1000.0f);
+
+		Graphics::setFloat4(tintLocation, vec4(1, 1, 1, 1));
+
 		program->set();
+		
 
-		/*
-		Set your uniforms for the light vector, the roughness and all further constants you encounter in the BRDF terms.
-		The BRDF itself should be implemented in the fragment shader.
-		*/
-		Graphics::setFloat3(lightLocation, light);
-		Graphics::setFloat3(eyeLocation, eye);
-		Graphics::setFloat(specLocation, specular);
-		Graphics::setFloat(roughnessLocation, roughness);
-		Graphics::setInt(modeLocation, mode);
+		angle += 0.3f * deltaT;
 
-		// set the camera
-		// vec3(0, 2, -3), vec3(0, 2, 0)
-		V = mat4::lookAt(eye, vec3(eye.x(), eye.y(), eye.z() + 3), vec3(0, 1, 0));
-		//V = mat4::lookAt(eye, globe, vec3(0, 1, 0)); //rotation test, can be deleted
+		float x = 0 + 3 * Kore::cos(angle);
+		float z = 0 + 3 * Kore::sin(angle);
+		
+		cameraPosition.set(x, 2, z);
+
+		//PV = mat4::Perspective(60, (float)width / (float)height, 0.1f, 100) * mat4::lookAt(vec3(0, 2, -3), vec3(0, 2, 0), vec3(0, 1, 0));
 		P = mat4::Perspective(60, (float)width / (float)height, 0.1f, 100);
-		Graphics::setMatrix(vLocation, V);
-		Graphics::setMatrix(pLocation, P);
+		View = mat4::lookAt(vec3(x, 2, z), vec3(0, 2, 0), vec3(0, 1, 0));
+		PV = P * View;
+
+
+		Graphics::setMatrix(pvLocation, PV);
+
+
+
+
 
 		// iterate the MeshObjects
 		MeshObject** current = &objects[0];
@@ -155,94 +320,72 @@ namespace {
 
 			(*current)->render(tex);
 			++current;
+		} 
+
+		
+
+		// Update the physics
+		physics.Update(deltaT);
+
+		PhysicsObject** currentP = &physics.physicsObjects[0];
+		while (*currentP != nullptr) {
+			(*currentP)->UpdateMatrix();
+			Graphics::setMatrix(mLocation, (*currentP)->Mesh->M);
+			(*currentP)->Mesh->render(tex);
+			++currentP;
 		}
+		
+
+
+		particleSystem->update(deltaT);
+		particleSystem->render(tex, particleImage, mLocation, View);
+
+
 
 		Graphics::end();
 		Graphics::swapBuffers();
 	}
 
+	void SpawnSphere(vec3 Position, vec3 Velocity) {
+		PhysicsObject* po = new PhysicsObject();
+		po->SetPosition(Position);
+		po->Velocity = Velocity;
+		po->Collider.radius = 0.2f;
+
+		po->Mass = 5;
+		po->Mesh = sphere;
+			
+		// The impulse should carry the object forward
+		// Use the inverse of the view matrix
+
+		po->ApplyImpulse(Velocity);
+		physics.AddObject(po);
+	}
+
 	void keyDown(KeyCode code, wchar_t character) {
-		if (code == Key_Left) {
-			left = true;
-		}
-		else if (code == Key_Right) {
-			right = true;
-		}
-		else if (code == Key_Up) {
-			forward = true;
-		}
-		else if (code == Key_Down) {
-			backward = true;
-		}
-		else if (code == Key_W) {
-			up = true;
-		}
-		else if (code == Key_S) {
-			down = true;
-		}
-		else if (code == Key_B) {
-			mode = 0;
-			std::cout << "Complete BRDF" << std::endl;
-		}
-		else if (code == Key_F) {
-			mode = 1;
-			std::cout << "Schlick's Fresnel approximation" << std::endl;
-		}
-		else if (code == Key_D) {
-			mode = 2;
-			std::cout << "Trowbridge-Reitz normal distribution term" << std::endl;
-		}
-		else if (code == Key_G) {
-			mode = 3;
-			std::cout << "Cook and Torrance's geometry factor" << std::endl;
-		}
-		else if (code == Key_T) {
-			toggle = !toggle;
-		}
-		else if (code == Key_R) {
-			if (toggle) {
-				roughness = std::max(roughness - 0.1f, 0.0f);
-			}
-			else {
-				roughness = std::min(roughness + 0.1f, 1.0f);
-			}
-			std::cout << "Roughness: " << roughness << std::endl;
-		}
-		else if (code == Key_E) {
-			if (toggle) {
-				specular = std::max(specular - 0.1f, 0.0f);
-			}
-			else {
-				specular = std::min(specular + 0.1f, 1.0f);
-			}
-			std::cout << "Specular: " << specular << std::endl;
-		}
-		else if (code == Key_Space) {
-			std::cout << "hi" << std::endl;
+		if (code == Key_Space) {
+			
+			// The impulse should carry the object forward
+			// Use the inverse of the view matrix
+
+			vec4 impulse(0, 0.4, 2, 0);
+			mat4 viewI = View;
+			viewI.Invert();
+			impulse = viewI * impulse;
+			
+			vec3 impulse3(impulse.x(), impulse.y(), impulse.z());
+
+			
+			SpawnSphere(cameraPosition + impulse3 *0.2f, impulse3);
 		}
 	}
-	
+
 	void keyUp(KeyCode code, wchar_t character) {
 		if (code == Key_Left) {
-			left = false;
-		}
-		else if (code == Key_Right) {
-			right = false;
-		}
-		else if (code == Key_Up) {
-			forward = false;
-		}
-		else if (code == Key_Down) {
-			backward = false;
-		}
-		else if (code == Key_W) {
-			up = false;
-		}
-		else if (code == Key_S) {
-			down = false;
+			// ...
 		}
 	}
-	
+
 	void mouseMove(int x, int y, int movementX, int movementY) {
 
 	}
@@ -251,8 +394,10 @@ namespace {
 
 	}
 
-	void mouseRelease(int button, int x, int y) {
+	
 
+	void mouseRelease(int button, int x, int y) {
+		
 	}
 
 	void init() {
@@ -273,44 +418,45 @@ namespace {
 		program->link(structure);
 
 		tex = program->getTextureUnit("tex");
-		pLocation = program->getConstantLocation("P");
-		vLocation = program->getConstantLocation("V");
+		pvLocation = program->getConstantLocation("PV");
 		mLocation = program->getConstantLocation("M");
-		lightLocation = program->getConstantLocation("light");
-		eyeLocation = program->getConstantLocation("eye");
-		specLocation = program->getConstantLocation("spec");
-		roughnessLocation = program->getConstantLocation("roughness");
-		modeLocation = program->getConstantLocation("mode");
-		objects[0] = new MeshObject("ball.obj", "ball_tex.png", structure);
-		objects[0]->M = mat4::Translation(globe.x(), globe.y(), globe.z()) * mat4::RotationY(180.0f);
-		objects[1] = new MeshObject("ball.obj", "light_tex.png", structure, 0.3f);
-		objects[1]->M = mat4::Translation(light.x(), light.y(), light.z());
+		tintLocation = program->getConstantLocation("tint");
+
+		objects[0] = new MeshObject("Base.obj", "Level/basicTiles6x6.png", structure);
+		objects[0]->M = mat4::Translation(0.0f, 1.0f, 0.0f);
+
+		sphere = new MeshObject("ball_at_origin.obj", "Level/unshaded.png", structure);
+
+		SpawnSphere(vec3(0, 2, 0), vec3(0, 0, 0));
+		
+		
 
 		Graphics::setRenderState(DepthTest, true);
 		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
 
-		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
-		Graphics::setTextureAddressing(tex, Kore::V, Repeat);
-		
-		std::cout << "Showing complete BRDF" << std::endl;
-		std::cout << "Roughness: " << roughness << std::endl;
-		std::cout << "Specular: " << specular << std::endl;
+		Graphics::setTextureAddressing(tex, U, Repeat);
+		Graphics::setTextureAddressing(tex, V, Repeat);
 
-		eye = vec3(0, 2, -3);
+		particleImage = new Texture("SuperParticle.png", true);
+		particleSystem = new ParticleSystem(100, structure);
+
+		
+
 	}
 }
 
 int kore(int argc, char** argv) {
-	Application* app = new Application(argc, argv, width, height, 0, false, "Exercise6");
+	Application* app = new Application(argc, argv, width, height, 0, false, "Exercise7");
 	
 	init();
 
 	app->setCallback(update);
 
 	startTime = System::time();
+	lastTime = 0.0f;
 	Kore::Mixer::init();
 	Kore::Audio::init();
-	//Kore::Mixer::play(new SoundStream("back.ogg", true));
+	
 	
 	Keyboard::the()->KeyDown = keyDown;
 	Keyboard::the()->KeyUp = keyUp;
