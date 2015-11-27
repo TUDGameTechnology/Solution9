@@ -1,11 +1,17 @@
 attribute vec3 pos;
 attribute vec2 tex;
 attribute vec3 nor;
+varying vec3 position;
 varying vec2 texCoord;
 varying vec3 normal;
+uniform mat4 P;
+uniform mat4 V;
+uniform mat4 M;
 
 void kore() {
-	gl_Position = vec4(pos.x, pos.y, pos.z, 1.0);
+	vec4 newPos = M * vec4(pos.x, pos.y, pos.z, 1.0);
+	gl_Position = P * V * newPos;
+	position = newPos.xyz / newPos.w;
 	texCoord = tex;
-	normal = nor;
+	normal = (V * M * vec4(nor, 0.0)).xyz;
 }

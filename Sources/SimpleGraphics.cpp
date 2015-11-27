@@ -9,9 +9,7 @@
 
 using namespace Kore;
 
-void shadePixel(int x, int y, float z, float u, float v) {
-
-}
+//void shadePixel(int x, int y, float z, float u, float v);
 
 namespace {
 	Shader* vertexShader;
@@ -34,19 +32,23 @@ void clear(float red, float green, float blue) {
 	CONVERT_COLORS(red, green, blue);
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
+#ifdef OPENGL
 			image[y * texture->width + x] = 0xff << 24 | b << 16 | g << 8 | r;
+#else
+			image[y * texture->width + x] = 0xff << 24 | r << 16 | g << 8 | b;
+#endif
 		}
 	}
 }
 
 void setPixel(int x, int y, float red, float green, float blue) {
-	if (y < 0 || y >= texture->texHeight || x < 0 || x >= texture->texWidth) {
-		return;
-	}
-	int r = (int)(red * 255);
-	int g = (int)(green * 255);
-	int b = (int)(blue * 255);
-	image[y * texture->texWidth + x] = 0xff << 24 | r << 16 | g << 8 | b;
+	if (x < 0 || x >= width || y < 0 || y >= height) return;
+	CONVERT_COLORS(red, green, blue);
+#ifdef OPENGL
+	image[y * texture->width + x] = 0xff << 24 | b << 16 | g << 8 | r;
+#else
+	image[y * texture->width + x] = 0xff << 24 | r << 16 | g << 8 | b;
+#endif
 }
 
 Image* loadImage(const char* filename) {
@@ -65,15 +67,19 @@ void drawImage(Image* image, int x, int y) {
 	for (int yy = ystart; yy < h; ++yy) {
 		for (int xx = xstart; xx < w; ++xx) {
 			int col = image->at(xx, yy);
+#ifdef OPENGL
 			::image[(y + yy) * texture->width + (x + xx)] = col;
+#else
+			::image[(y + yy) * texture->width + (x + xx)] = 0xff << 24
+				| ((col >> 0) & 0xff) << 16
+				| ((col >> 8) & 0xff) << 8
+				| ((col >> 16) & 0xff);
+#endif
 		}
 	}
 }
 
 void getPixel(Image* image, int x, int y, float& red, float& green, float& blue) {
-	if (x < 0 || x > image->width || y < 0 || y > image->height) {
-		return;
-	}
 	int col = image->at(x, y);
 	blue = ((col & 0xff0000) >> 16) / 255.0f;
 	green = ((col & 0xff00) >> 8) / 255.0f;
@@ -164,7 +170,7 @@ namespace {
 			float z = span.z1 + zdiff * factor;
 			float u = span.u1 + udiff * factor;
 			float v = span.v1 + vdiff * factor;
-			shadePixel(x, y, z, u, 1 - v);
+			//shadePixel(x, y, z, u, 1 - v);
 			factor += factorStep;
 		}
 	}
@@ -239,11 +245,10 @@ void endFrame() {
 	Graphics::begin();
 	Graphics::clear(Graphics::ClearColorFlag, 0xff000000);
 
-
 	program->set();
-	Graphics::setTexture(tex, texture);
-	Graphics::setVertexBuffer(*vb);
-	Graphics::setIndexBuffer(*ib);
+	texture->_set(tex);
+	vb->_set();
+	ib->_set();
 	Graphics::drawIndexedVertices();
 
 	Graphics::end();
@@ -267,26 +272,23 @@ void initGraphics() {
 
 	texture = new Texture(width, height, Image::RGBA32, false);
 	image = (int*)texture->lock();
-	for (int y = 0; y < texture->texHeight; ++y) {
-		for (int x = 0; x < texture->texWidth; ++x) {
-			image[y * texture->texWidth + x] = 0;
+	for (int y = 0; y < texture->height; ++y) {
+		for (int x = 0; x < texture->width; ++x) {
+			image[y * texture->width + x] = 0;
 		}
 	}
 	texture->unlock();
-
-	// Correct for the difference between the texture's desired size and the actual power of 2 size
-	float xAspect = (float)texture->width / texture->texWidth;
-	float yAspect = (float)texture->height / texture->texHeight;
-
 
 	vb = new VertexBuffer(4, structure, 0);
 	float* v = vb->lock();
 	{
 		int i = 0;
+		float w = (float)texture->width / (float)texture->texWidth;
+		float h = (float)texture->height / (float)texture->texHeight;
 		v[i++] = -1; v[i++] = 1; v[i++] = 0.5; v[i++] = 0; v[i++] = 0;
-		v[i++] = 1;  v[i++] = 1; v[i++] = 0.5; v[i++] = xAspect; v[i++] = 0;
-		v[i++] = 1; v[i++] = -1;  v[i++] = 0.5; v[i++] = xAspect; v[i++] = yAspect;
-		v[i++] = -1; v[i++] = -1;  v[i++] = 0.5; v[i++] = 0; v[i++] = yAspect;
+		v[i++] = 1;  v[i++] = 1; v[i++] = 0.5; v[i++] = w; v[i++] = 0;
+		v[i++] = 1; v[i++] = -1;  v[i++] = 0.5; v[i++] = w; v[i++] = h;
+		v[i++] = -1; v[i++] = -1;  v[i++] = 0.5; v[i++] = 0; v[i++] = h;
 	}
 	vb->unlock();
 
