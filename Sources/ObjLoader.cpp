@@ -241,8 +241,10 @@ Mesh* loadObj(const char* filename) {
 	int index = 0;
 	char* line = tokenize(source, '\n', index);
 	
+	int lineNumber = 0;
 	while (line != nullptr) {
 		parseLine(mesh, line);
+		lineNumber++;
 		delete[] line;
 		line = tokenize(source, '\n', index);
 	}

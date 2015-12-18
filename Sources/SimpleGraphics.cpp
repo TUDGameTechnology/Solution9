@@ -246,9 +246,12 @@ void endFrame() {
 	Graphics::clear(Graphics::ClearColorFlag, 0xff000000);
 
 	program->set();
-	texture->_set(tex);
-	vb->_set();
-	ib->_set();
+	//texture->_set(tex);
+	Graphics::setTexture(tex, texture);
+	//vb->_set();
+	Graphics::setVertexBuffer(*vb);
+	//ib->_set();	
+	Graphics::setIndexBuffer(*ib);
 	Graphics::drawIndexedVertices();
 
 	Graphics::end();

@@ -1,14 +1,10 @@
 #pragma once
 
-#include "pch.h"
-
-// TODO: Way too many includes
-// TODO: Everything public
-
 #include <Kore/Application.h>
 #include <Kore/IO/FileReader.h>
 #include <Kore/Math/Core.h>
 #include <Kore/Math/Random.h>
+#include <Kore/Math/Quaternion.h>
 #include <Kore/System.h>
 #include <Kore/Input/Keyboard.h>
 #include <Kore/Input/Mouse.h>
@@ -29,12 +25,15 @@ using namespace Kore;
 // A physically simulated object
 class PhysicsObject {
 vec3 Position;
+Quat Rotation;
+
 public:
 	float Mass;
 	vec3 Velocity;
-	int id;
+	vec3 AngularVelocity;
 
-	static int currentID;
+	mat3 MomentOfInertia;
+	mat3 InverseMomentOfInertia;
 
 	void SetPosition(vec3 pos) {
 		Position = pos;
@@ -68,6 +67,10 @@ public:
 
 	// Handle the collision with another sphere (includes testing for intersection)
 	void HandleCollision(PhysicsObject* other, float deltaT);
+
+	void HandleCollision(const TriangleCollider& collider, float deltaT);
+	
+	void HandleCollision(TriangleMeshCollider& collider, float deltaT);
 
 	// Update the matrix of the mesh
 	void UpdateMatrix();

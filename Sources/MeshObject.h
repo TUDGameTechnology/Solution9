@@ -2,8 +2,6 @@
 
 #include "pch.h"
 
-// TODO: Way too many includes
-
 #include <Kore/Application.h>
 #include <Kore/IO/FileReader.h>
 #include <Kore/Math/Core.h>
@@ -27,7 +25,7 @@ public:
 		mesh = loadObj(meshFile);
 		image = new Texture(textureFile, true);
 
-		vertexBuffer = new VertexBuffer(mesh->numVertices, structure,0);
+		vertexBuffer = new VertexBuffer(mesh->numVertices, structure, 0);
 		float* vertices = vertexBuffer->lock();
 		for (int i = 0; i < mesh->numVertices; ++i) {
 			vertices[i * 8 + 0] = mesh->vertices[i * 8 + 0] * scale;
@@ -52,16 +50,20 @@ public:
 	}
 
 	void render(TextureUnit tex) {
+		//image->_set(tex);
 		Graphics::setTexture(tex, image);
+		//vertexBuffer->_set();
 		Graphics::setVertexBuffer(*vertexBuffer);
+		//indexBuffer->_set();
 		Graphics::setIndexBuffer(*indexBuffer);
 		Graphics::drawIndexedVertices();
 	}
 
 	mat4 M;
-private:
+
 	VertexBuffer* vertexBuffer;
 	IndexBuffer* indexBuffer;
+
 	Mesh* mesh;
 	Texture* image;
 };

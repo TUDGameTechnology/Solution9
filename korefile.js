@@ -1,5 +1,5 @@
-var solution = new Solution('Exercise7');
-var project = new Project('Exercise7');
+var solution = new Solution('Exercise8');
+var project = new Project('Exercise8');
 
 project.addFile('Sources/**');
 project.setDebugDir('Deployment');
