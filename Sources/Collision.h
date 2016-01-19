@@ -12,8 +12,9 @@ using namespace Kore;
 
 /************************************************************************/
 /* Task 1.2 Implement the box-sphere intersection test you derived for
-/* this task. You can use the collider in the main update function
+/* this task. You can use the collider in the main update function in Exercise.cpp
 /* to test it against the sphere (you can find it via phyics.physicsObject[0]).
+/* You can instantiate your collider in the Exercise.cpp init function.
 /************************************************************************/
 class BoxCollider {
 public:
