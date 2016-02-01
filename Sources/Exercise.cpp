@@ -69,6 +69,12 @@ namespace {
 	ConstantLocation pvLocation;
 	ConstantLocation mLocation;
 
+	/************************************************************************/
+	/* Solution 1.2 - Initialize the box collider                           */
+	/************************************************************************/
+	BoxCollider boxCollider(vec3(-46.0f, -4.0f, 44.0f), vec3(10.6f, 4.4f, 4.0f));
+	bool playedSound = false;
+
 	double lastTime;
 
 	void update() {
@@ -160,8 +166,18 @@ namespace {
 			(*currentP)->Mesh->render(tex);
 			++currentP;
 		}
-		
 
+
+		/************************************************************************/
+		/* Solution 1.2 - Check the box collider for collision                  */
+		/************************************************************************/
+		PhysicsObject* SpherePO = physics.physicsObjects[0];
+		bool result = SpherePO->Collider.IntersectsWith(boxCollider);
+		if (result && !playedSound) {
+			playedSound = true;
+			Mixer::play(winSound);
+		}
+			
 
 		Graphics::end();
 		Graphics::swapBuffers();
@@ -253,7 +269,7 @@ namespace {
 		SpawnSphere(vec3(-pos, 5.5f, pos), vec3(0, 0, 0));
 
 		physics.meshCollider.mesh = objects[0];
-		
+
 		// Sound source: http://opengameart.org/content/level-up-sound-effects
 		
 		/************************************************************************/

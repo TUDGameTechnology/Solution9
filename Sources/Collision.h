@@ -10,16 +10,6 @@ using namespace Kore;
 
 
 
-/************************************************************************/
-/* Task 1.2 Implement the box-sphere intersection test you derived for
-/* this task. You can use the collider in the main update function in Exercise.cpp
-/* to test it against the sphere (you can find it via phyics.physicsObject[0]).
-/* You can instantiate your collider in the Exercise.cpp init function.
-/************************************************************************/
-class BoxCollider {
-public:
-
-};
 
 
 // A plane is defined as the plane's normal and the distance of the plane to the origin
@@ -30,6 +20,43 @@ public:
 
 
 };
+
+
+/************************************************************************/
+/* Task 1.2 Implement the box-sphere intersection test you derived for
+/* this task. You can use the collider in the main update function in Exercise.cpp
+/* to test it against the sphere (you can find it via phyics.physicsObject[0]).
+/* You can instantiate your collider in the Exercise.cpp init function.
+/************************************************************************/
+class BoxCollider {
+public:
+	PlaneCollider posX;
+	PlaneCollider negX;
+	PlaneCollider posY;
+	PlaneCollider negY;
+	PlaneCollider posZ;
+	PlaneCollider negZ;
+
+	BoxCollider(Kore::vec3 center, Kore::vec3 fullExtents) {
+		posX.normal = vec3(1, 0, 0);
+		posX.d = center.x() + fullExtents.x() * 0.5f;
+		posX.d *= -1.0f;
+		negX.normal = vec3(-1, 0, 0);
+		negX.d = center.x() - fullExtents.x() * 0.5f;
+		posY.normal = vec3(0, 1, 0);
+		posY.d = center.y() + fullExtents.y() * 0.5f;
+		posY.d *= -1.0f;
+		negY.normal = vec3(0, -1, 0);
+		negY.d = center.y() - fullExtents.y() * 0.5f;
+		posZ.normal = vec3(0, 0, 1);
+		posZ.d = center.z() + fullExtents.z() * 0.5f;
+		posZ.d *= -1.0f;
+		negZ.normal = vec3(0, 0, -1);
+		negZ.d = center.z() - fullExtents.z() * 0.5f;
+	}
+
+};
+
 
 
 class TriangleCollider {
@@ -97,6 +124,10 @@ public:
 	vec3 center;
 	float radius;
 
+
+	
+
+
 	// Return true iff there is an intersection with the other sphere
 	bool IntersectsWith(const SphereCollider& other) {
 		float distance = (other.center - center).getLength();
@@ -116,17 +147,89 @@ public:
 	}
 
 
-
-	bool IntersectsWith(const PlaneCollider& other) {
-		return other.normal.dot(center) + other.d <= radius;
-	}
-
 	vec3 GetCollisionNormal(const PlaneCollider& other) {
 		return other.normal;
 	}
 
 	float PenetrationDepth(const PlaneCollider &other) {
 		return other.normal.dot(center) + other.d - radius;
+	}
+
+
+	/************************************************************************/
+	/* Solution 1.2 - Check for intersection with a box collider            */
+	/************************************************************************/
+	float Distance(const PlaneCollider& other) {
+		return other.normal.dot(center) + other.d;
+	}
+
+	bool IntersectsWith(const PlaneCollider& other) {
+		return Kore::abs(Distance(other)) <= radius;
+	}
+
+	bool IsInside(const PlaneCollider& other) {
+		return Distance(other) < radius;
+	}
+
+	bool IsOutside(const PlaneCollider& other) {
+		return Distance(other) > radius;
+	}
+
+	bool IsInside(const BoxCollider& other) {
+		if (!IsInside(other.posX))  { return false; }
+		if (!IsInside(other.negX))  { return false; }
+		if (!IsInside(other.posY))  { return false; }
+		if (!IsInside(other.negY))  { return false; }
+		if (!IsInside(other.posZ))  { return false; }
+		if (!IsInside(other.negZ))  { return false; }
+
+		return true;
+	}
+
+
+	bool IntersectsWithSides(const BoxCollider& other) {
+		bool in_posX = !IsOutside(other.posX);
+		bool in_negX = !IsOutside(other.negX);
+		bool in_posY = !IsOutside(other.posY);
+		bool in_negY = !IsOutside(other.negY);
+		bool in_posZ = !IsOutside(other.posZ);
+		bool in_negZ = !IsOutside(other.negZ);
+
+		if (IntersectsWith(other.posZ) &&
+			in_posX && in_negX && in_posY && in_negY) {
+			return true;
+		}
+
+		if (IntersectsWith(other.negZ) &&
+			in_posX && in_negX && in_posY && in_negY) {
+			return true;
+		}
+
+		if (IntersectsWith(other.posX) &&
+			in_posZ && in_negZ && in_posY && in_negY) {
+			return true;
+		}
+
+		if (IntersectsWith(other.negX) &&
+			in_posZ && in_negZ && in_posY && in_negY) {
+			return true;
+		}
+
+		if (IntersectsWith(other.posY) &&
+			in_posZ && in_negZ && in_posX && in_negX) {
+			return true;
+		}
+
+		if (IntersectsWith(other.negY) &&
+			in_posZ && in_negZ && in_posX && in_negX) {
+			return true;
+		}
+
+		return false;
+	}
+
+	bool IntersectsWith(const BoxCollider& other) {
+		return IsInside(other) || IntersectsWithSides(other);
 	}
 
 	
@@ -232,17 +335,32 @@ public:
 	/************************************************************************/
 	bool IsSeparatedByVertexA(const TriangleCollider& other)
 	{
-		return true;
+		float distance = (other.A - center).getLength();
+		bool distanceCheck = distance > radius;
+
+		bool isSameDirectionB = (other.B - other.A).dot(other.A - center) > 0.0f;
+		bool isSameDirectionC = (other.C - other.A).dot(other.A - center) > 0.0f;
+		return distanceCheck & isSameDirectionB & isSameDirectionC;
 	}
 
 	bool IsSeparatedByVertexB(const TriangleCollider& other)
 	{
-		return true;
+		float distance = (other.B - center).getLength();
+		bool distanceCheck = distance > radius;
+
+		bool isSameDirectionA = (other.A - other.B).dot(other.B - center) > 0.0f;
+		bool isSameDirectionC = (other.C - other.B).dot(other.B - center) > 0.0f;
+		return distanceCheck & isSameDirectionA & isSameDirectionC;
 	}
 
 	bool IsSeparatedByVertexC(const TriangleCollider& other)
 	{
-		return true;
+		float distance = (other.C - center).getLength();
+		bool distanceCheck = distance > radius;
+
+		bool isSameDirectionA = (other.A - other.C).dot(other.C - center) > 0.0f;
+		bool isSameDirectionB = (other.B - other.C).dot(other.C - center) > 0.0f;
+		return distanceCheck & isSameDirectionA & isSameDirectionB;
 	}
 
 
