@@ -17,11 +17,7 @@ PhysicsObject::PhysicsObject() {
 	MomentOfInertia.Set(1, 1, I);
 	MomentOfInertia.Set(2, 2, I);
 
-	InverseMomentOfInertia = MomentOfInertia;
-	InverseMomentOfInertia.Invert();
-
-
-
+	InverseMomentOfInertia = MomentOfInertia.Invert();
 }
 
 
@@ -64,7 +60,7 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 
 		// Turn the velocity into contact-coordinates.
 		mat3 worldToContact = contactToWorld;
-		worldToContact.Invert();
+		worldToContact = worldToContact.Invert();
 		vec3 contactVelocity = worldToContact * vel;
 
 
@@ -125,7 +121,7 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 
 		// Invert to get the impulse needed per unit velocity
 		mat3 impulseMatrix = deltaVelocity;
-		impulseMatrix.Invert();
+		impulseMatrix = impulseMatrix.Invert();
 
 		// Find the target velocities to kill
 		vec3 velKill(desiredDeltaVelocity,

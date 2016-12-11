@@ -111,20 +111,14 @@ namespace {
 
 		lookAt = oldLookAt * (1.0f - alpha) + targetLookAt * alpha;
 		oldLookAt = lookAt;
-		
-		
 
 		// Follow the ball with the camera
-		P = mat4::Perspective(60, (float)width / (float)height, 0.1f, 100);
+		P = mat4::Perspective(60.0f * Kore::pi / 180.0f, (float)width / (float)height, 0.1f, 100);
 		View = mat4::lookAt(cameraPosition, lookAt, vec3(0, 1, 0)); 
 		PV = P * View;
 
 
 		Graphics::setMatrix(pvLocation, PV);
-
-
-
-
 
 		// iterate the MeshObjects
 		MeshObject** current = &objects[0];
@@ -139,7 +133,6 @@ namespace {
 		
 
 		physics.Update(deltaT);
-
 
 		PhysicsObject** currentP = &physics.physicsObjects[0];
 	
