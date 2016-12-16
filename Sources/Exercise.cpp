@@ -67,7 +67,7 @@ namespace {
 	ConstantLocation mLocation;
 
 	/************************************************************************/
-	/* Solution 1.2 - Initialize the box collider                           */
+	/* Task P9.2 - Initialize the box collider                           */
 	/************************************************************************/
 	BoxCollider boxCollider(vec3(-46.0f, -4.0f, 44.0f), vec3(10.6f, 4.4f, 4.0f));
 
@@ -141,7 +141,7 @@ namespace {
 
 
 		/************************************************************************/
-		/* Solution 1.2 - Check the box collider for collision                  */
+		/* Task P9.2 - Check the box collider for collision                  */
 		/************************************************************************/
 		PhysicsObject* SpherePO = physics.physicsObjects[0];
 		bool result = SpherePO->Collider.IntersectsWith(boxCollider);
@@ -231,7 +231,7 @@ namespace {
 
 		// Sound source: http://opengameart.org/content/level-up-sound-effects
 		/************************************************************************/
-		/* Task 1.2: Play this sound when the goal is reached                   */
+		/* Task P9.2: Play this sound when the goal is reached                   */
 		/************************************************************************/
 		winSound = new Sound("chipquest.wav");
 		Mixer::play(winSound);
