@@ -4,16 +4,9 @@
 
 #include <Kore/IO/FileReader.h>
 #include <Kore/Math/Core.h>
-#include <Kore/Math/Random.h>
-#include <Kore/System.h>
-#include <Kore/Input/Keyboard.h>
-#include <Kore/Input/Mouse.h>
-#include <Kore/Audio/Mixer.h>
 #include <Kore/Graphics/Image.h>
 #include <Kore/Graphics/Graphics.h>
-#include <Kore/Log.h>
 #include "ObjLoader.h"
-
 
 
 using namespace Kore;
@@ -49,11 +42,8 @@ public:
 	}
 
 	void render(TextureUnit tex) {
-		//image->_set(tex);
 		Graphics::setTexture(tex, image);
-		//vertexBuffer->_set();
 		Graphics::setVertexBuffer(*vertexBuffer);
-		//indexBuffer->_set();
 		Graphics::setIndexBuffer(*indexBuffer);
 		Graphics::drawIndexedVertices();
 	}

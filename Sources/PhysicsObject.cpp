@@ -5,12 +5,11 @@
 
 using namespace Kore;
 
-
 PhysicsObject::PhysicsObject() {
 	Accumulator = vec3(0, 0, 0);
 	Velocity = vec3(0, 0, 0);
 	Collider.radius = 0.5f;
-	Rotation = Quat();//Quaternion(vec3(1, 1, 1), 0);
+	Rotation = Quat();
 	Mass = 1.0f;
 	float I = 2.0f/5.0f * Mass * Collider.radius * Collider.radius;
 	MomentOfInertia.Set(0, 0, I);
@@ -19,9 +18,6 @@ PhysicsObject::PhysicsObject() {
 
 	InverseMomentOfInertia = MomentOfInertia.Invert();
 }
-
-
-
 
 void SetSkewSymmetric(mat3& matrix, vec3& v) {
 	matrix.Set(0, 0, 0);
@@ -35,23 +31,18 @@ void SetSkewSymmetric(mat3& matrix, vec3& v) {
 	matrix.Set(2, 2, 0);
 }
 
+void PhysicsObject::HandleCollision(TriangleMeshCollider& otherCollider, float deltaT) {
 
-
-
-void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT) {
 	// Check if we are colliding with the plane
-
-
-	if (Collider.IntersectsWith(collider)) {
+	if (Collider.IntersectsWith(otherCollider)) {
 
 		// Calculate the contact velocity
-		///////////////
 
 		// Get the matrix contact coordinate system to world coordinate system
-		mat3 contactToWorld = Collider.GetCollisonBasis(Collider.GetCollisionNormal(collider));
+		mat3 contactToWorld = Collider.GetCollisonBasis(Collider.GetCollisionNormal(otherCollider));
 
 		// Get the relative contact position
-		vec3 collisionGlobalPosition = Collider.GetCollisionPoint(collider);
+		vec3 collisionGlobalPosition = Collider.GetCollisionPoint(otherCollider);
 		vec3 collisionRelativePosition = collisionGlobalPosition - Collider.center;
 
 		// Work out the velocity of the contact point.
@@ -63,33 +54,28 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 		worldToContact = worldToContact.Invert();
 		vec3 contactVelocity = worldToContact * vel;
 
-
-		///////////////
 		// Calculate the desired velocity change
 		float velocityLimit = 0.25f;
 
 		// Calculate the acceleration induced velocity accumulated this frame
 		float velocityFromAcc = 0;
 
-		vec3 contactNormal = Collider.GetCollisionNormal(collider);
+		vec3 contactNormal = Collider.GetCollisionNormal(otherCollider);
 
 		velocityFromAcc += Accumulator  * deltaT * contactNormal;
 
 		float restitution = 0.8f;
 
 
-		// Combine the bounce velocity with the removed
-		// acceleration velocity.
+		// Combine the bounce velocity with the removed acceleration velocity.
 		float desiredDeltaVelocity = -contactVelocity.x() - restitution * (contactVelocity.x() - velocityFromAcc);
 		
-
 		// Calculate the impulse contact
 		vec3 impulseContact;
 
 		float inverseMass = 1.0f / Mass;
 
 		float friction = 0.2f;
-
 
 		// The equivalent of a cross product in matrices is multiplication
 		// by a skew symmetric matrix - we build the matrix for converting
@@ -103,8 +89,6 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 		deltaVelWorld *= InverseMomentOfInertia;
 		deltaVelWorld *= impulseToTorque;
 		deltaVelWorld = deltaVelWorld * -1.0f;
-
-
 
 		// Do a change of basis to convert into contact coordinates.
 		mat3 deltaVelocity = contactToWorld;
@@ -128,8 +112,6 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 			-contactVelocity.y(),
 			-contactVelocity.z());
 
-
-
 		// Find the impulse to kill target velocities
 		impulseContact = impulseMatrix * velKill;
 
@@ -138,9 +120,6 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 			impulseContact.y() * impulseContact.y() +
 			impulseContact.z() * impulseContact.z()
 			);
-
-
-
 
 		//if ((planarImpulse > impulseContact.x() * friction) & (planarImpulse > 0.1f))
 		//{
@@ -156,13 +135,8 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 		//	impulseContact.set(x, impulseContact.y() * friction * x, impulseContact.z() * friction * x);
 		//}
 
-
-
-
 		// Use the impulse contact
 		vec3 impulse = contactToWorld * impulseContact;
-
-
 
 		vec3 impulsiveTorque = collisionRelativePosition.cross(impulse);
 
@@ -173,21 +147,17 @@ void PhysicsObject::HandleCollision(TriangleMeshCollider& collider, float deltaT
 		AngularVelocity += rotationChange;
 		Velocity += velocityChange;
 
-
 		// Move the object out of the collider
-		float penetrationDepth = Collider.PenetrationDepth(collider);
-
-
+		float penetrationDepth = Collider.PenetrationDepth(otherCollider);
 		 SetPosition(Position - contactNormal * penetrationDepth * 1.05f);
 	}
 }
 
 
 void PhysicsObject::HandleCollision(PhysicsObject* other, float deltaT) {
+
 	// Check if we are colliding with the plane
 	if (Collider.IntersectsWith(other->Collider)) {
-
-		//Kore::log(Info, "Intersection");
 
 		float restitution = 0.8f;
 
@@ -226,8 +196,6 @@ void PhysicsObject::ApplyForceToCenter(vec3 force) {
 
 
 void PhysicsObject::Integrate(float deltaT) {
-	
-	
 	// Derive a new Velocity based on the accumulated forces
 	Velocity += (Accumulator / Mass) * deltaT;
 
@@ -235,17 +203,9 @@ void PhysicsObject::Integrate(float deltaT) {
 	float damping = 0.98f;
 	Velocity *= damping;
 
-//	vec3 ang;
-
-//	ang.set(AngularVelocity.x(), AngularVelocity.y(), AngularVelocity.z());
 	AngularVelocity *= damping;
-	// ang *= damping;
 
-	
-	//Rotation = Rotation + (ang * deltaT);
 	Rotation.addScaledVector(AngularVelocity, deltaT);
-
-	
 	
 	// Derive a new position based on the velocity (Note: Use SetPosition to also set the collider's values)
 	SetPosition(Position + Velocity * deltaT);

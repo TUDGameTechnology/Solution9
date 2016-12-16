@@ -6,19 +6,15 @@
 
 using namespace Kore;
 
-
-
-
-
-
-
 // A plane is defined as the plane's normal and the distance of the plane to the origin
 class PlaneCollider {
 public:
+
+	// Distance
 	float d;
+
+	// Normal
 	vec3 normal;
-
-
 };
 
 
@@ -99,10 +95,6 @@ public:
 
 };
 
-
-
-
-
 class TriangleMeshCollider {
 public:
 	MeshObject* mesh;
@@ -110,23 +102,12 @@ public:
 	int lastCollision;
 };
 
-
-
 // A sphere is defined by a radius and a center.
 class SphereCollider {
 public:
 
-	
-	SphereCollider() {
-	}
-
-
 	vec3 center;
 	float radius;
-
-
-	
-
 
 	// Return true iff there is an intersection with the other sphere
 	bool IntersectsWith(const SphereCollider& other) {
@@ -232,8 +213,6 @@ public:
 		return IsInside(other) || IntersectsWithSides(other);
 	}
 
-	
-
 	vec3 GetCollisionNormal(const TriangleCollider& other) {
 		// Use the normal of the triangle plane
 		vec3 n = (other.B - other.A).cross(other.C - other.A);
@@ -247,7 +226,6 @@ public:
 
 		return 0.0f;
 	}
-
 	
 	bool IntersectsWith(TriangleMeshCollider& other) {
 		TriangleCollider coll;
@@ -268,7 +246,6 @@ public:
 		return false;
 	}
 
-
 	vec3 GetCollisionNormal(const TriangleMeshCollider& other) {
 		TriangleCollider coll;
 		coll.LoadFromBuffers(other.lastCollision, other.mesh->mesh->indices, other.mesh->mesh->vertices);
@@ -281,7 +258,6 @@ public:
 		coll.LoadFromBuffers(other.lastCollision, other.mesh->mesh->indices, other.mesh->mesh->vertices);
 		PlaneCollider plane = coll.GetPlane();
 
-
 		return PenetrationDepth(plane);		
 	}
 
@@ -292,9 +268,6 @@ public:
 		vec3 result = center - GetCollisionNormal(other) * radius;
 		return result;
 	}
-
-	
-
 
 	// Find a set of basis vectors such that the provided collision normal x is the first column of the basis matrix,
 	// and the other two vectors are perpendicular to the collision normal
@@ -323,11 +296,6 @@ public:
 		basis.Set(2, 2, z.z());
 		return basis;
 	}
-
-
-	
-
-
 
 	/************************************************************************/
 	/* Task 1.1: Implement these functions. They should return true only if the
@@ -362,11 +330,6 @@ public:
 		bool isSameDirectionB = (other.B - other.C).dot(other.C - center) > 0.0f;
 		return distanceCheck & isSameDirectionA & isSameDirectionB;
 	}
-
-
-
-	
-
 
 	bool IntersectsWith(const TriangleCollider& other) {
 		// Separating Axes Test

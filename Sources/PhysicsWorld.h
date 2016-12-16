@@ -1,26 +1,22 @@
 #pragma once
 
-#include <Kore/IO/FileReader.h>
+#include <Kore/Math/Vector.h>
+#include <Kore/Math/Matrix.h>
 #include <Kore/Math/Core.h>
-#include <Kore/Math/Random.h>
-#include <Kore/System.h>
-#include <Kore/Input/Keyboard.h>
-#include <Kore/Input/Mouse.h>
-#include <Kore/Audio/Mixer.h>
-#include <Kore/Graphics/Image.h>
-#include <Kore/Graphics/Graphics.h>
-#include <Kore/Log.h>
 #include "ObjLoader.h"
+#include "Collision.h"
+#include "PhysicsObject.h"
 
 using namespace Kore;
 
-#include "Collision.h"
-#include "PhysicsObject.h"
 
 class PhysicsObject;
 
 // Handles all physically simulated objects.
 class PhysicsWorld {
+	
+	int maxPhysicsObjects;
+
 public:
 	
 	// The ground plane
@@ -34,7 +30,7 @@ public:
 	// null terminated array of PhysicsObject pointers
 	PhysicsObject** physicsObjects;
 
-	PhysicsWorld();
+	PhysicsWorld(int inMaxPhysicsObjects = 100);
 	
 	// Integration step
 	void Update(float deltaT);

@@ -10,45 +10,43 @@
 #include <Kore/Graphics/Image.h>
 #include <Kore/Graphics/Graphics.h>
 #include <Kore/Log.h>
-#include "ObjLoader.h"
 
+#include "ObjLoader.h"
 #include "Collision.h"
 #include "PhysicsWorld.h"
 #include "PhysicsObject.h"
 
 using namespace Kore;
 
-
-
-
 namespace {
-	const int width = 1024;
-	const int height = 768;
+	const int width = 512;
+	const int height = 512;
 	double startTime;
 	Shader* vertexShader;
 	Shader* fragmentShader;
 	Program* program;
 
-	float angle = 0.0f;
-
-
-	bool left;
-	bool right;
-	bool up;
-	bool down;
+	// controls
+	bool left = false;
+	bool right = false;
+	bool up = false;
+	bool down = false;
 
 	// null terminated array of MeshObject pointers
 	MeshObject* objects[] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
 	// The sound to play for the winning condition
 	Sound* winSound;
-
+	
+	// Was the sound already played?
+	bool playedSound = false;
 
 	// The view projection matrix aka the camera
 	mat4 P;
 	mat4 View;
 	mat4 PV;
 
+	// Camera-related variables
 	vec3 cameraPosition;
 	vec3 targetCameraPosition;
 	vec3 oldCameraPosition;
@@ -57,12 +55,12 @@ namespace {
 	vec3 targetLookAt;
 	vec3 oldLookAt;
 
+	// The sphere and the associated physics object
 	MeshObject* sphere;
 	PhysicsObject* po;
 
 	PhysicsWorld physics;
 	
-
 	// uniform locations - add more as you see fit
 	TextureUnit tex;
 	ConstantLocation pvLocation;
@@ -72,15 +70,14 @@ namespace {
 	/* Solution 1.2 - Initialize the box collider                           */
 	/************************************************************************/
 	BoxCollider boxCollider(vec3(-46.0f, -4.0f, 44.0f), vec3(10.6f, 4.4f, 4.0f));
-	bool playedSound = false;
 
-	double lastTime;
+	double lastTime = 0.0;
 
 	void update() {
 		double t = System::time() - startTime;
 		double deltaT = t - lastTime;
-
 		lastTime = t;
+
 		Kore::Audio::update();
 		
 		Graphics::begin();
@@ -89,15 +86,6 @@ namespace {
 		program->set();
 
 		// set the camera
-
-		angle += 0.3f * deltaT;
-
-		float x = 0 + 10 * Kore::cos(angle);
-		float z = 0 + 10 * Kore::sin(angle);
-		
-		targetCameraPosition.set(x, 2, z);
-
-		
 		targetCameraPosition = physics.physicsObjects[0]->GetPosition();
 		targetCameraPosition = targetCameraPosition + vec3(-10, 5, 10);
 		vec3 targetLookAt = physics.physicsObjects[0]->GetPosition();
@@ -105,10 +93,8 @@ namespace {
 		
 		// Interpolate the camera to not follow small physics movements
 		float alpha = 0.3f;
-
 		cameraPosition = oldCameraPosition * (1.0f - alpha) + targetCameraPosition * alpha;
 		oldCameraPosition = cameraPosition;
-
 		lookAt = oldLookAt * (1.0f - alpha) + targetLookAt * alpha;
 		oldLookAt = lookAt;
 
@@ -117,23 +103,18 @@ namespace {
 		View = mat4::lookAt(cameraPosition, lookAt, vec3(0, 1, 0)); 
 		PV = P * View;
 
-
 		Graphics::setMatrix(pvLocation, PV);
 
-		// iterate the MeshObjects
+		// Render the mesh objects
 		MeshObject** current = &objects[0];
 		while (*current != nullptr) {
 			// set the model matrix
 			Graphics::setMatrix(mLocation, (*current)->M);
-
 			(*current)->render(tex);
 			++current;
 		} 
 
-		
-
-		physics.Update(deltaT);
-
+		physics.Update((float) deltaT);
 		PhysicsObject** currentP = &physics.physicsObjects[0];
 	
 
@@ -150,8 +131,7 @@ namespace {
 		force = force * 20.0f;
 		(*currentP)->ApplyForceToCenter(force);
 
-
-
+		// Render the meshes
 		while (*currentP != nullptr) {
 			(*currentP)->UpdateMatrix();
 			Graphics::setMatrix(mLocation, (*currentP)->Mesh->M);
@@ -170,7 +150,6 @@ namespace {
 			Mixer::play(winSound);
 		}
 			
-
 		Graphics::end();
 		Graphics::swapBuffers();
 	}
@@ -179,9 +158,7 @@ namespace {
 		PhysicsObject* po = new PhysicsObject();
 		po->SetPosition(Position);
 		po->Velocity = Velocity;
-		
 		po->Collider.radius = 0.5f;
-
 		po->Mass = 5;
 		po->Mesh = sphere;
 			
@@ -191,43 +168,34 @@ namespace {
 		physics.AddObject(po);
 	}
 
-	void keyDown(KeyCode code, wchar_t character) {
-		if (code == Key_Space) {
-		} else if (code == Key_Up) {
-			up = true;
-		} else if (code == Key_Down) {
-			down = true;
-		} else if (code == Key_Left) {
-			right = true;
-		} else if (code == Key_Right) {
-			left = true;
+	void handleKeyEvent(KeyCode code, bool isDown)
+	{
+		if (code == Key_Up || code == Key_W) {
+			up = isDown;
+		} else if (code == Key_Down || code == Key_S) {
+			down = isDown;
+		} else if (code == Key_Left || code == Key_A) {
+			right = isDown;
+		} else if (code == Key_Right || code == Key_D) {
+			left = isDown;
 		}
+	}
+
+	void keyDown(KeyCode code, wchar_t character) {
+		handleKeyEvent(code, true);
 	}
 
 	void keyUp(KeyCode code, wchar_t character) {
-		if (code == Key_Up) {
-			up = false;
-		} else if (code == Key_Down) {
-			down = false;
-		} else if (code == Key_Left) {
-			right = false;
-		} else if (code == Key_Right) {
-			left = false;
-		}
+		handleKeyEvent(code, false);
 	}
 
 	void mouseMove(int windowId, int x, int y, int movementX, int movementY) {
-
 	}
 	
 	void mousePress(int windowId, int button, int x, int y) {
-
 	}
 
-	
-
 	void mouseRelease(int windowId, int button, int x, int y) {
-		
 	}
 
 	void init() {
@@ -251,19 +219,17 @@ namespace {
 		pvLocation = program->getConstantLocation("PV");
 		mLocation = program->getConstantLocation("M");
 
-		objects[0] = new MeshObject("Test.obj", "Level/basicTiles6x6.png", structure);
+		objects[0] = new MeshObject("Level/Level.obj", "Level/basicTiles6x6.png", structure);
 		objects[1] = new MeshObject("Level/Level_yellow.obj", "Level/basicTiles3x3yellow.png", structure);
 		objects[2] = new MeshObject("Level/Level_red.obj", "Level/basicTiles3x3red.png", structure);
 
 		sphere = new MeshObject("ball_at_origin.obj", "Level/unshaded.png", structure);
-
 		float pos = -10.0f;
-		SpawnSphere(vec3(-pos, 5.5f, pos), vec3(0, 0, 0));
 
+		SpawnSphere(vec3(-pos, 5.5f, pos), vec3(0, 0, 0));
 		physics.meshCollider.mesh = objects[0];
 
 		// Sound source: http://opengameart.org/content/level-up-sound-effects
-		
 		/************************************************************************/
 		/* Task 1.2: Play this sound when the goal is reached                   */
 		/************************************************************************/
@@ -275,11 +241,6 @@ namespace {
 
 		Graphics::setTextureAddressing(tex, U, Repeat);
 		Graphics::setTextureAddressing(tex, V, Repeat);
-
-		
-
-		
-
 	}
 }
 
@@ -287,7 +248,7 @@ int kore(int argc, char** argv) {
 	Kore::System::setName("TUD Game Technology - ");
 	Kore::System::setup();
 	Kore::WindowOptions options;
-	options.title = "Solution 8";
+	options.title = "Solution 9";
 	options.width = width;
 	options.height = height;
 	options.x = 100;
@@ -307,10 +268,7 @@ int kore(int argc, char** argv) {
 
 	Kore::System::setCallback(update);
 
-
-
 	startTime = System::time();
-
 
 	Keyboard::the()->KeyDown = keyDown;
 	Keyboard::the()->KeyUp = keyUp;

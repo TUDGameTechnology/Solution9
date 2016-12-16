@@ -1,30 +1,15 @@
 #pragma once
 
-#include <Kore/IO/FileReader.h>
-#include <Kore/Math/Core.h>
-#include <Kore/Math/Random.h>
-#include <Kore/Math/Quaternion.h>
-#include <Kore/System.h>
-#include <Kore/Input/Keyboard.h>
-#include <Kore/Input/Mouse.h>
-#include <Kore/Audio/Mixer.h>
-#include <Kore/Graphics/Image.h>
-#include <Kore/Graphics/Graphics.h>
-#include <Kore/Log.h>
-#include "ObjLoader.h"
-
-using namespace Kore;
-
 #include "Collision.h"
 #include "MeshObject.h"
 #include "PhysicsWorld.h"
 
-
+using namespace Kore;
 
 // A physically simulated object
 class PhysicsObject {
-vec3 Position;
-Quat Rotation;
+	vec3 Position;
+	Quat Rotation;
 
 public:
 	float Mass;
@@ -42,12 +27,12 @@ public:
 	vec3 GetPosition() {
 		return Position;
 	}
-	
+
 	// Force accumulator
 	vec3 Accumulator;
-	
+
 	SphereCollider Collider;
-	
+
 	MeshObject* Mesh;
 
 	PhysicsObject();
@@ -57,7 +42,7 @@ public:
 
 	// Apply a force that acts along the center of mass
 	void ApplyForceToCenter(vec3 force);
-	
+
 	// Apply an impulse
 	void ApplyImpulse(vec3 impulse);
 
@@ -68,7 +53,7 @@ public:
 	void HandleCollision(PhysicsObject* other, float deltaT);
 
 	void HandleCollision(const TriangleCollider& collider, float deltaT);
-	
+
 	void HandleCollision(TriangleMeshCollider& collider, float deltaT);
 
 	// Update the matrix of the mesh
