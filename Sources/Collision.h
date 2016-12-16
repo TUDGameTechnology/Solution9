@@ -19,7 +19,7 @@ public:
 
 
 /************************************************************************/
-/* Task 1.2 Implement the box-sphere intersection test you derived for
+/* Task P9.2 Implement the box-sphere intersection test you derived for
 /* this task. You can use the collider in the main update function in Exercise.cpp
 /* to test it against the sphere (you can find it via phyics.physicsObject[0]).
 /* You can instantiate your collider in the Exercise.cpp init function.
@@ -138,7 +138,7 @@ public:
 
 
 	/************************************************************************/
-	/* Solution 1.2 - Check for intersection with a box collider            */
+	/* Task P9.2 - Check for intersection with a box collider            */
 	/************************************************************************/
 	float Distance(const PlaneCollider& other) {
 		return other.normal.dot(center) + other.d;
@@ -298,7 +298,7 @@ public:
 	}
 
 	/************************************************************************/
-	/* Task 1.1: Implement these functions. They should return true only if the
+	/* Task P9.1: Implement these functions. They should return true only if the
 	 * axis from the sphere center to the vertex of the triangle is a separating axis.
 	/************************************************************************/
 	bool IsSeparatedByVertexA(const TriangleCollider& other)
